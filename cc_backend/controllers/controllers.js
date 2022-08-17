@@ -1,93 +1,97 @@
 const db = require('../database');
 
-const bookByInterest = ((req,res) => {
-    // Expecting ==>
-    // studentName
-    // interestName
-    // duration
+const createSpecial = ((req, res) => {
+    // Expecting ====
+    // email and choice 
 
-    if(!( req.body.studentName && req.body.interestName && req.body.duration )){
+    if(!(req.body.email && req.body.choice)) {
         res.status(400).send({ msg: "insufficient parameters"});
     }
 
-    db.query(`SELECT *, ADDTIME(fTime, ${req.body.duration})  AS newFT FROM ccurve.mymentors WHERE interests LIKE '%${req.body.interestName}%' AND tTime >= ADDTIME(fTime, ${req.body.duration})` , (error, result) => {
+    db.query(`INSERT INTO abhroCC.Special (EmailID, Special) VALUES ('${req.body.email}','${req.body.choice}')`, (error, result) => {
         if(error) throw error;
-        else if(result.length == 0)
-        {
-            return res.status(400).send({ msg: "All mentor slots are full!" });
-        }
         else {
-            const startTime = result[0].fTime;
-            const newFinal = result[0].newFT;
-            const mentor = result[0].mentorName;
-
-            db.query(`INSERT INTO ccurve.mybookings (studentName, mentorName, interestName, fTime, tTime) VALUES ('${req.body.studentName}', '${mentor}', '${req.body.interestName}', '${startTime}', '${newFinal}')`, (error, result) => {
+            db.query(`SELECT Selectionid FROM abhroCC.Special WHERE EmailID = '${req.body.email}'`, (error, result) => {
                 if(error) throw error;
                 else {
-                    db.query(`UPDATE ccurve.mymentors SET fTime = '${newFinal}' WHERE mentorName = '${mentor}'`, (error, result) => {
-                        if(error) throw error;
-                    })
+                    return res.status(200).send(result);
                 }
             })
         }
-        res.status(200).send({ msg: "Slot booked successfully!"});
     })
 })
 
-const getPremiumMentor = (req, res) => {
+const updateSpecial = ((req, res) => {
+    // Expecting ====
+    // ID and choice
 
-    if(!( req.body.studentName && req.body.interestName && req.body.duration )){
+    if(!(req.body.id && req.body.choice)){
+        res.status(400).send({ msg: "missing params"});
+    }
+
+    db.query(`UPDATE abhroCC.Special SET Special = '${req.body.choice}' WHERE Selectionid = ${req.body.id}`, (error, result) => {
+        if(error) throw error;
+        else {
+            return res.status(200).send({ msg : "Successfully updated"})
+        }
+    })
+})
+
+const getSpecial = ((req, res) => {
+    db.query(`SELECT * FROM abhroCC.Special`, (error, result) => {
+        if(error) throw error;
+        else {
+            return res.status(200).send(result)
+        }
+
+    })
+})
+
+const getAvailTime = ((req, res) => {
+    if(!(req.body.StartTime)) {
         res.status(400).send({ msg: "insufficient parameters"});
     }
 
-    db.query(`SELECT mentorName FROM ccurve.mymentors WHERE interests LIKE '%${req.body.interestName}%' AND tTime >= ADDTIME(fTime, ${req.body.duration})` , (error, result)=>{
+    db.query(`SELECT * FROM abhroCC.AvailbaleSLots WHERE StartTime < SUBTIME('${req.body.StartTime}', '00:30') OR StartTIme > ADDTIME('${req.body.StartTime}', '00:30');`, (error, result) => {
+        if (error) throw error; 
+        else{
+            const intArr = []
+            result.map((name)=>{
+                return intArr.push(name.StartTime);
+            });
+            res.status(200).send(intArr);
+        }
+    })
+})
+
+const bookTimeSlot = ((req, res) => {
+    if(!(req.body.email && req.body.StartTime)) {
+        res.status(400).send({ msg: "insufficient parameters"});
+    }
+
+    db.query(`INSERT INTO abhroCC.Slots (EmailID, StartTime, EndTime) VALUES ("${req.body.email}", '${req.body.StartTime}', ADDTIME(StartTime, '00:30'));`, (error, result) => {
+        if(error) throw error;
+        else{
+            res.status(200).send({msg : `booked!`});
+        }
+    })
+
+})
+
+const seeAllSlots = ((req, res) => {
+    db.query(`SELECT * FROM abhroCC.Slots;`, (error, result) => {
         if(error) throw error;
         else {
-            const intArr = []
-            result.map((name)=>{
-                return intArr.push(name.mentorName);
-            });
-            res.status(200).send(intArr);
-        }
-    })
-}
-
-const getInterests = ((req, res) => {
-    db.query(`SELECT interestName from ccurve.myinterests`, (err, result) => {
-        if(err) throw err;
-        else {
-            const intArr = []
-            result.map((name)=>{
-                return intArr.push(name.interestName);
-            });
-            res.status(200).send(intArr);
-        }
-    })
-})
-
-const getBookingTable = ((req, res) => {
-    db.query(`SELECT * from ccurve.mybookings`, (err, result) => {
-        if(err) throw err;
-        else {
-            return res.status(200).send(result);
-        }
-    })
-
-})
-
-const getMentorTable = ((req, res) => {
-    db.query(`SELECT * from ccurve.mymentors`, (err, result) => {
-        if(err) throw err;
-        else {
-            return res.status(200).send(result);
+            res.status(200).send(result)
         }
     })
 })
 
 module.exports = {
-    bookByInterest,
-    getInterests,
-    getBookingTable,
-    getMentorTable,
-    getPremiumMentor
+    createSpecial,
+    updateSpecial,
+    getSpecial,
+    getAvailTime,
+    seeAllSlots,
+    bookTimeSlot,
 }
